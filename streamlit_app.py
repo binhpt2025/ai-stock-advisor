@@ -28,8 +28,8 @@ def send_email(df, email_address):
     print(f"Đã gửi email tới {email_address}")
     return True
 
-st.set_page_config(page_title="Stock Advisor - BinhPT", layout="wide")
-st.title("AI Stock Advisor")
+st.set_page_config(page_title="AI Stock Advisor", layout="wide")
+st.title("Stock Advisor - BinhPT")
 st.markdown("#### Tư vấn chứng khoán tự động & cập nhật theo thời gian thực (mỗi 30p)")
 
 email_address = st.text_input("Nhập email để nhận báo cáo tự động (không bắt buộc):", "")
