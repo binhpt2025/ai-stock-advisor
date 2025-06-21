@@ -87,7 +87,13 @@ if 'filtered_df' not in st.session_state:
 # --- Nhập email + nút gửi email + Refresh ---
 c1, c2, c3 = st.columns([4, 1])
 with c1:
-    email_address = st.text_input("Nhập email nhận báo cáo:", key="email_input")
+    # email_address = st.text_input("Nhập email nhận báo cáo:", key="email_input") 
+
+    email_address = st.text_input(
+        "",  # Ẩn label
+        placeholder="Nhập email nhận báo cáo",
+        key="email_input"
+
 with c2:
     st.write("")
     if st.button("Send email"):
@@ -99,6 +105,8 @@ with c2:
                 st.error(msg)
         else:
             st.warning("Vui lòng nhập đúng định dạng email.")
+            
+    send_email_clicked = st.button("Send email", use_container_width=True)
 with c3:
     st.write("")
     if st.button("Refresh dữ liệu"):
