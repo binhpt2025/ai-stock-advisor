@@ -45,35 +45,43 @@ def fetch_stock_data():
 
 def send_email(df, email_address):
     try:
+        # Tạo bản sao DataFrame để format mà không làm hỏng dữ liệu gốc
+        df_send = df.copy()
+
+        # --- Định dạng giá khi gửi email (triệu đồng, 2 chữ số thập phân) ---
+        for col in ["Giá cuối ngày hôm qua", "Giá hiện tại"]:
+            if col in df_send.columns:
+                # Chỉ format nếu vẫn là số, nếu là chuỗi thì bỏ qua (phòng lỗi lặp)
+                df_send[col] = df_send[col].apply(
+                    lambda x: f"{float(x)/1000:.2f}" if isinstance(x, (int, float, np.integer, np.floating)) else x
+                )
+
         sender = st.secrets["email"]["sender"]
         password = st.secrets["email"]["password"]
 
         subject = "Báo cáo khuyến nghị chứng khoán từ Stock Advisor - BinhPT"
-        
-        # --- Định dạng giá khi gửi email (triệu đồng, 2 chữ số thập phân) ---
-        for col in ["Giá cuối ngày hôm qua", "Giá hiện tại"]:
-            if col in df.columns:
-                df[col] = df[col].apply(lambda x: f"{float(x)/1000:.2f}")
 
         # Tô màu highlight cho bảng
         def highlight_rows(row):
             style = [''] * len(row)
-            if len(df) > 0:
-                if "Mua" in df["Khuyến nghị"].values:
-                    idx_mua_best = df[df["Khuyến nghị"] == "Mua"]["Giá hiện tại"].idxmin()
+            if len(df_send) > 0:
+                if "Mua" in df_send["Khuyến nghị"].values:
+                    idx_mua_best = df_send[df_send["Khuyến nghị"] == "Mua"]["Giá hiện tại"].astype(float).idxmin()
                     if row.name == idx_mua_best:
                         style = ['background-color: #b6fcb6'] * len(row)
-                if "Bán" in df["Khuyến nghị"].values:
-                    idx_ban_best = df[df["Khuyến nghị"] == "Bán"]["Giá hiện tại"].idxmax()
+                if "Bán" in df_send["Khuyến nghị"].values:
+                    idx_ban_best = df_send[df_send["Khuyến nghị"] == "Bán"]["Giá hiện tại"].astype(float).idxmax()
                     if row.name == idx_ban_best:
                         style = ['background-color: #ffbdbd'] * len(row)
             return style
 
         html_table = (
-            df.style
+            df_send.style
             .apply(highlight_rows, axis=1)
-            .set_table_attributes('border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; font-family: Arial; font-size: 14px"')
-            .hide(axis="index")  # Ẩn index cột đầu
+            .set_table_attributes(
+                'border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; font-family: Arial; font-size: 14px"'
+            )
+            .hide(axis="index")
             .to_html()
         )
 
@@ -97,6 +105,7 @@ def send_email(df, email_address):
         return True, f"Đã gửi email thành công tới {email_address}!"
     except Exception as e:
         return False, f"Lỗi gửi email: {e}"
+
 
 def is_valid_email(email):
     if not email: return False
@@ -197,18 +206,18 @@ def highlight_rows(row):
     return style
 
 # --- Định dạng giá trên giao diện (triệu đồng, 2 chữ số thập phân) ---
+display_df = df.copy()
 for col in ["Giá cuối ngày hôm qua", "Giá hiện tại"]:
-    if col in df.columns:
-        df[col] = df[col].apply(lambda x: f"{float(x)/1000:.2f}")
-
+    if col in display_df.columns:
+        display_df[col] = display_df[col].apply(lambda x: f"{float(x)/1000:.2f}")
+        
 # --- Hiển thị bảng ---
 st.markdown("#### Danh sách mã chứng khoán")
-if df.empty:
+if display_df.empty:
     st.warning("Không có dữ liệu phù hợp với bộ lọc.")
 else:
-    # Sử dụng Pandas Styler cho highlight
     st.dataframe(
-        df.style.apply(highlight_rows, axis=1),
+        display_df.style.apply(highlight_rows, axis=1),
         use_container_width=True,
         height=430,
     )
