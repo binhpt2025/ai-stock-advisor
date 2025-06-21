@@ -89,10 +89,7 @@ c1, c2, c3 = st.columns([4, 1])
 with c1:
     # email_address = st.text_input("Nhập email nhận báo cáo:", key="email_input") 
 
-    email_address = st.text_input(
-        "",  # Ẩn label
-        placeholder="Nhập email nhận báo cáo",
-        key="email_input"
+    email_address = st.text_input("", placeholder="Nhập email nhận báo cáo", key="email_input")
 
 with c2:
     st.write("")
