@@ -51,7 +51,7 @@ def send_email(df, email_address):
         subject = "Báo cáo khuyến nghị chứng khoán từ Stock Advisor - BinhPT"
         body = (
             "Chào bạn,\n\n"
-            "Đây là bảng khuyến nghị chứng khoán mới nhất bạn vừa nhận từ ứng dụng Stock Advisor của BinhPT:\n\n"
+            "Dưới đây là bảng khuyến nghị chứng khoán mới nhất mà BinhPT gửi đến bạn nhé:\n\n"
             f"{df.to_markdown(index=False)}\n\n"
             "Trân trọng,\nAI Stock Advisor \nBinhPT"
         )
