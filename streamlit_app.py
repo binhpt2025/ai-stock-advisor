@@ -53,7 +53,7 @@ def send_email(df, email_address):
             "Chào bạn,\n\n"
             "Đây là bảng khuyến nghị chứng khoán mới nhất bạn vừa nhận từ ứng dụng Stock Advisor của BinhPT:\n\n"
             f"{df.to_markdown(index=False)}\n\n"
-            "Trân trọng,\nAI Stock Advisor"
+            "Trân trọng,\nAI Stock Advisor \nBinhPT"
         )
 
         message = MIMEMultipart()
