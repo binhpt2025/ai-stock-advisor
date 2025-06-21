@@ -49,6 +49,11 @@ def send_email(df, email_address):
         password = st.secrets["email"]["password"]
 
         subject = "Báo cáo khuyến nghị chứng khoán từ Stock Advisor - BinhPT"
+        
+        # --- Định dạng giá khi gửi email (triệu đồng, 2 chữ số thập phân) ---
+        for col in ["Giá cuối ngày hôm qua", "Giá hiện tại"]:
+            if col in df.columns:
+                df[col] = df[col].apply(lambda x: f"{float(x)/1000:.2f}")
 
         # Tô màu highlight cho bảng
         def highlight_rows(row):
@@ -190,6 +195,11 @@ def highlight_rows(row):
             if row.name == idx_ban_best:
                 style = ['background-color: #ffbdbd'] * len(row)
     return style
+
+# --- Định dạng giá trên giao diện (triệu đồng, 2 chữ số thập phân) ---
+for col in ["Giá cuối ngày hôm qua", "Giá hiện tại"]:
+    if col in df.columns:
+        df[col] = df[col].apply(lambda x: f"{float(x)/1000:.2f}")
 
 # --- Hiển thị bảng ---
 st.markdown("#### Danh sách mã chứng khoán")
