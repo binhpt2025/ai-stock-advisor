@@ -2,12 +2,14 @@ import streamlit as st
 import pandas as pd
 import datetime
 import re
+import numpy as np
 
 # --- Mock data demo ---
 def fetch_stock_data():
     data = {
         "Mã CK": ["VIC", "VHM", "VPB", "SSI", "VND", "STB", "MBB", "TCB", "FPT", "HPG"],
         "Khuyến nghị": ["Mua", "Mua", "Mua", "Mua", "Bán", "Bán", "Bán", "Bán", "Mua", "Mua"],
+        "Giá cuối ngày hôm qua": [50900, 46000, 22800, 32100, 15200, 17400, 22800, 30900, 96500, 25800],
         "Giá hiện tại": [51200, 45700, 23400, 32500, 14700, 17100, 22300, 31400, 97800, 26500],
         "Lý do": [
             "Tăng trưởng ổn định, dòng tiền mạnh",
@@ -22,10 +24,22 @@ def fetch_stock_data():
             "Giá thép hồi phục, nhu cầu tăng"
         ]
     }
-    return pd.DataFrame(data)
+    df = pd.DataFrame(data)
+    # Tính tỷ lệ thay đổi %
+    df["Tỷ lệ thay đổi (Tăng/Giảm)"] = (
+        (df["Giá hiện tại"] - df["Giá cuối ngày hôm qua"]) / df["Giá cuối ngày hôm qua"] * 100
+    ).round(2)
+    # Format hiển thị %
+    df["Tỷ lệ thay đổi (Tăng/Giảm)"] = df["Tỷ lệ thay đổi (Tăng/Giảm)"].apply(
+        lambda x: f"{x:+.2f}%" if not pd.isna(x) else "-"
+    )
+    # Đặt lại thứ tự cột
+    df = df[
+        ["Mã CK", "Khuyến nghị", "Giá cuối ngày hôm qua", "Giá hiện tại", "Tỷ lệ thay đổi (Tăng/Giảm)", "Lý do"]
+    ]
+    return df
 
 def send_email(df, email_address):
-    # Demo function, không gửi email thực
     try:
         table_text = df.to_markdown(index=False)
         print(f"Đã gửi email tới {email_address} với nội dung sau:\n{table_text}")
@@ -39,18 +53,20 @@ def is_valid_email(email):
 
 st.set_page_config(page_title="AI Stock Advisor", layout="wide")
 st.title("Stock Advisor - BinhPT")
-st.markdown("#### Tư vấn chứng khoán tự động, gửi dữ liệu đến email (mỗi 30p)")
+st.markdown("#### Tư vấn chứng khoán tự động, lọc dữ liệu & gửi email (mỗi 30p)")
 
 if 'df' not in st.session_state:
     st.session_state['df'] = fetch_stock_data()
     st.session_state['last_update'] = datetime.datetime.now().strftime('%H:%M:%S')
+if 'filtered_df' not in st.session_state:
+    st.session_state['filtered_df'] = st.session_state['df']
 
 # --- Nhập email + nút gửi email + Refresh ---
 c1, c2, c3 = st.columns([2, 1, 1])
 with c1:
     email_address = st.text_input("Nhập email nhận báo cáo:", key="email_input")
 with c2:
-    st.write("")  # căn chỉnh nút với input
+    st.write("")
     if st.button("Send email"):
         if is_valid_email(email_address):
             success, msg = send_email(st.session_state.get('filtered_df', st.session_state['df']).copy(), email_address)
@@ -70,7 +86,7 @@ with c3:
 
 st.info(f"Cập nhật lần cuối: {st.session_state['last_update']}")
 
-# --- Lọc dữ liệu (Mua/Bán, Giá cổ phiếu) + Button Query ---
+# --- Lọc dữ liệu (Mua/Bán, Giá cổ phiếu) + Button Query chính xác vị trí ---
 filter1, filter2, filter3 = st.columns([2,2,1])
 with filter1:
     buy_sell_option = st.selectbox(
@@ -89,10 +105,7 @@ with filter2:
 with filter3:
     query_clicked = st.button("Query")
 
-# --- Áp dụng filter chỉ khi bấm Query (lưu kết quả vào session_state['filtered_df']) ---
-if 'filtered_df' not in st.session_state:
-    st.session_state['filtered_df'] = st.session_state['df']
-
+# --- Chỉ áp dụng filter khi bấm Query ---
 if query_clicked:
     df = st.session_state['df'].copy()
     if buy_sell_option != "Tất cả":
@@ -121,12 +134,10 @@ def highlight_rows(row):
                 if row.name == idx_ban_best:
                     style = ['background-color: #ffbdbd'] * len(row)
         elif buy_sell_option == "Mua":
-            # Highlight mã Mua giá thấp nhất
             idx_mua_best = df["Giá hiện tại"].idxmin()
             if row.name == idx_mua_best:
                 style = ['background-color: #b6fcb6'] * len(row)
         elif buy_sell_option == "Bán":
-            # Highlight mã Bán giá cao nhất
             idx_ban_best = df["Giá hiện tại"].idxmax()
             if row.name == idx_ban_best:
                 style = ['background-color: #ffbdbd'] * len(row)
@@ -137,6 +148,7 @@ st.markdown("#### Danh sách mã chứng khoán")
 if df.empty:
     st.warning("Không có dữ liệu phù hợp với bộ lọc.")
 else:
+    # Sử dụng Pandas Styler cho highlight
     st.dataframe(
         df.style.apply(highlight_rows, axis=1),
         use_container_width=True,
@@ -147,4 +159,5 @@ st.caption("""
 - Bấm **Query** để lọc dữ liệu theo các bộ lọc trên. Không bấm sẽ giữ nguyên dữ liệu cũ.
 - Button **Send email** gửi bảng dữ liệu đang hiển thị đến địa chỉ email hợp lệ.
 - Màu **xanh lá**: mã nên Mua nhất; **đỏ nhạt**: mã nên Bán nhất (tuỳ bộ lọc).
+- Đã bổ sung các cột: "Giá cuối ngày hôm qua", "Tỷ lệ thay đổi (Tăng/Giảm)" và hiển thị đúng vị trí.
 """)
