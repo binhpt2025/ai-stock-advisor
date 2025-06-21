@@ -49,18 +49,41 @@ def send_email(df, email_address):
         password = st.secrets["email"]["password"]
 
         subject = "Báo cáo khuyến nghị chứng khoán từ Stock Advisor - BinhPT"
-        body = (
-            "Chào bạn,\n\n"
-            "Dưới đây là bảng khuyến nghị chứng khoán mới nhất mà BinhPT gửi đến bạn nhé:\n\n"
-            f"{df.to_markdown(index=False)}\n\n"
-            "Trân trọng,\nAI Stock Advisor \nBinhPT"
+
+        # Tô màu highlight cho bảng
+        def highlight_rows(row):
+            style = [''] * len(row)
+            if len(df) > 0:
+                if "Mua" in df["Khuyến nghị"].values:
+                    idx_mua_best = df[df["Khuyến nghị"] == "Mua"]["Giá hiện tại"].idxmin()
+                    if row.name == idx_mua_best:
+                        style = ['background-color: #b6fcb6'] * len(row)
+                if "Bán" in df["Khuyến nghị"].values:
+                    idx_ban_best = df[df["Khuyến nghị"] == "Bán"]["Giá hiện tại"].idxmax()
+                    if row.name == idx_ban_best:
+                        style = ['background-color: #ffbdbd'] * len(row)
+            return style
+
+        html_table = (
+            df.style
+            .apply(highlight_rows, axis=1)
+            .set_table_attributes('border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; font-family: Arial; font-size: 14px"')
+            .hide(axis="index")  # Ẩn index cột đầu
+            .to_html()
         )
 
-        message = MIMEMultipart()
+        body = f"""
+        <p>Chào bạn,<br><br>
+        Dưới đây là bảng khuyến nghị chứng khoán mới nhất mà BinhPT gửi đến bạn nhé:<br></p>
+        {html_table}
+        <br><br>Trân trọng,<br>AI Stock Advisor,<br>BinhPT
+        """
+
+        message = MIMEMultipart("alternative")
         message["From"] = sender
         message["To"] = email_address
         message["Subject"] = subject
-        message.attach(MIMEText(body, "plain", "utf-8"))
+        message.attach(MIMEText(body, "html", "utf-8"))
 
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(sender, password)
