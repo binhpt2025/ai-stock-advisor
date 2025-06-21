@@ -85,7 +85,7 @@ if 'filtered_df' not in st.session_state:
     st.session_state['filtered_df'] = st.session_state['df']
 
 # --- Nhập email + nút gửi email + Refresh ---
-c1, c2, c3 = st.columns([2, 1, 1])
+c1, c2, c3 = st.columns([4, 1])
 with c1:
     email_address = st.text_input("Nhập email nhận báo cáo:", key="email_input")
 with c2:
