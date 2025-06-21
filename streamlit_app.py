@@ -4,6 +4,10 @@ import datetime
 import re
 import numpy as np
 
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 # --- Mock data demo ---
 def fetch_stock_data():
     data = {
@@ -41,9 +45,28 @@ def fetch_stock_data():
 
 def send_email(df, email_address):
     try:
-        table_text = df.to_markdown(index=False)
-        print(f"Đã gửi email tới {email_address} với nội dung sau:\n{table_text}")
-        return True, "Gửi email thành công (demo log)."
+        sender = st.secrets["email"]["sender"]
+        password = st.secrets["email"]["password"]
+
+        subject = "Báo cáo khuyến nghị chứng khoán từ Stock Advisor - BinhPT"
+        body = (
+            "Chào bạn,\n\n"
+            "Đây là bảng khuyến nghị chứng khoán mới nhất bạn vừa nhận từ ứng dụng Stock Advisor của BinhPT:\n\n"
+            f"{df.to_markdown(index=False)}\n\n"
+            "Trân trọng,\nAI Stock Advisor"
+        )
+
+        message = MIMEMultipart()
+        message["From"] = sender
+        message["To"] = email_address
+        message["Subject"] = subject
+        message.attach(MIMEText(body, "plain", "utf-8"))
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender, password)
+            server.sendmail(sender, email_address, message.as_string())
+
+        return True, f"Đã gửi email thành công tới {email_address}!"
     except Exception as e:
         return False, f"Lỗi gửi email: {e}"
 
