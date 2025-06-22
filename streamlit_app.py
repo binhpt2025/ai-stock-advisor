@@ -8,42 +8,40 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-# --- Mock data ---
+# --- Mock data demo ---
 def fetch_stock_data():
-    url = "https://api-bora.dnse.com.vn/market/stock_real_time"
-    params = {"floor": "HOSE"}  # Có thể thay "HOSE", "HNX", "UPCOM"
-    res = requests.get(url, params=params, timeout=10)
-    res.raise_for_status()
-    data_json = res.json()["data"]
-    records = []
-    for stock in data_json:
-        ma_ck = stock["code"]
-        gia_hien_tai = stock["matched_price"] or 0
-        gia_hqua = stock["ref_price"] or 0
-        chenh_lech = gia_hien_tai - gia_hqua
-        ty_le = ((gia_hien_tai - gia_hqua)/gia_hqua*100) if gia_hqua else 0
-        records.append({
-            "Mã CK": ma_ck,
-            "Giá cuối ngày hôm qua": gia_hqua,
-            "Giá hiện tại": gia_hien_tai,
-            "Chênh lệch": chenh_lech,
-            "Tỷ lệ %": ty_le
-        })
-    df = pd.DataFrame(records)
-    # Lấy top 10 tăng mạnh nhất
-    top_buy = df.sort_values(by="Tỷ lệ %", ascending=False).head(10)
-    top_buy["Khuyến nghị"] = "Mua"
-    top_buy["Lý do"] = "Tăng mạnh nhất sàn"
-    # Lấy top 10 giảm mạnh nhất
-    top_sell = df.sort_values(by="Tỷ lệ %", ascending=True).head(10)
-    top_sell["Khuyến nghị"] = "Bán"
-    top_sell["Lý do"] = "Giảm mạnh nhất sàn"
-    df_final = pd.concat([top_buy, top_sell])
-    df_final["Tỷ lệ thay đổi (Tăng/Giảm)"] = df_final["Tỷ lệ %"].apply(lambda x: f"{x:+.2f}%")
-    df_final = df_final[
+    data = {
+        "Mã CK": ["VIC", "VHM", "VPB", "SSI", "VND", "STB", "MBB", "TCB", "FPT", "HPG"],
+        "Khuyến nghị": ["Mua", "Mua", "Mua", "Mua", "Bán", "Bán", "Bán", "Bán", "Mua", "Mua"],
+        "Giá cuối ngày hôm qua": [50900, 46000, 22800, 32100, 15200, 17400, 22800, 30900, 96500, 25800],
+        "Giá hiện tại": [51200, 45700, 23400, 32500, 14700, 17100, 22300, 31400, 97800, 26500],
+        "Lý do": [
+            "Tăng trưởng ổn định, dòng tiền mạnh",
+            "Nền tảng vững, giá hấp dẫn",
+            "Lợi nhuận Q2 vượt dự báo",
+            "Kỳ vọng ngành chứng khoán phục hồi",
+            "Rủi ro thị trường, sức mua yếu",
+            "Tăng nóng, cần điều chỉnh",
+            "Chưa rõ động lực tăng giá",
+            "Thị trường bất ổn, tiềm ẩn rủi ro",
+            "Doanh thu công nghệ tăng mạnh",
+            "Giá thép hồi phục, nhu cầu tăng"
+        ]
+    }
+    df = pd.DataFrame(data)
+    # Tính tỷ lệ thay đổi %
+    df["Tỷ lệ thay đổi (Tăng/Giảm)"] = (
+        (df["Giá hiện tại"] - df["Giá cuối ngày hôm qua"]) / df["Giá cuối ngày hôm qua"] * 100
+    ).round(2)
+    # Format hiển thị %
+    df["Tỷ lệ thay đổi (Tăng/Giảm)"] = df["Tỷ lệ thay đổi (Tăng/Giảm)"].apply(
+        lambda x: f"{x:+.2f}%" if not pd.isna(x) else "-"
+    )
+    # Đặt lại thứ tự cột
+    df = df[
         ["Mã CK", "Khuyến nghị", "Giá cuối ngày hôm qua", "Giá hiện tại", "Tỷ lệ thay đổi (Tăng/Giảm)", "Lý do"]
     ]
-    return df_final.reset_index(drop=True)
+    return df
 
 def send_email(df, email_address):
     try:
