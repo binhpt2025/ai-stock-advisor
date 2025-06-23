@@ -9,39 +9,82 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 # --- Mock data demo ---
+import requests
+from bs4 import BeautifulSoup
+ 
 def fetch_stock_data():
-    data = {
-        "Mã CK": ["VIC", "VHM", "VPB", "SSI", "VND", "STB", "MBB", "TCB", "FPT", "HPG"],
-        "Khuyến nghị": ["Mua", "Mua", "Mua", "Mua", "Bán", "Bán", "Bán", "Bán", "Mua", "Mua"],
-        "Giá cuối ngày hôm qua": [50900, 46000, 22800, 32100, 15200, 17400, 22800, 30900, 96500, 25800],
-        "Giá hiện tại": [51200, 45700, 23400, 32500, 14700, 17100, 22300, 31400, 97800, 26500],
-        "Lý do": [
-            "Tăng trưởng ổn định, dòng tiền mạnh",
-            "Nền tảng vững, giá hấp dẫn",
-            "Lợi nhuận Q2 vượt dự báo",
-            "Kỳ vọng ngành chứng khoán phục hồi",
-            "Rủi ro thị trường, sức mua yếu",
-            "Tăng nóng, cần điều chỉnh",
-            "Chưa rõ động lực tăng giá",
-            "Thị trường bất ổn, tiềm ẩn rủi ro",
-            "Doanh thu công nghệ tăng mạnh",
-            "Giá thép hồi phục, nhu cầu tăng"
-        ]
-    }
-    df = pd.DataFrame(data)
-    # Tính tỷ lệ thay đổi %
-    df["Tỷ lệ thay đổi (Tăng/Giảm)"] = (
-        (df["Giá hiện tại"] - df["Giá cuối ngày hôm qua"]) / df["Giá cuối ngày hôm qua"] * 100
-    ).round(2)
-    # Format hiển thị %
-    df["Tỷ lệ thay đổi (Tăng/Giảm)"] = df["Tỷ lệ thay đổi (Tăng/Giảm)"].apply(
-        lambda x: f"{x:+.2f}%" if not pd.isna(x) else "-"
-    )
-    # Đặt lại thứ tự cột
-    df = df[
-        ["Mã CK", "Khuyến nghị", "Giá cuối ngày hôm qua", "Giá hiện tại", "Tỷ lệ thay đổi (Tăng/Giảm)", "Lý do"]
-    ]
-    return df
+    # Crawl bài viết mới nhất từ CafeF (hoặc đổi thành link khác cùng cấu trúc)
+    base_url = "https://cafef.vn"
+    list_url = "https://cafef.vn/tai-chinh-chung-khoan.chn"
+    res = requests.get(list_url, timeout=15)
+    soup = BeautifulSoup(res.text, "lxml")
+    articles = soup.select("h3.title-news a")  # Lấy các link bài viết
+ 
+    result_list = []
+    for a in articles[:20]:  # Crawl 20 bài mới nhất, có thể tăng lên nếu muốn
+        url = base_url + a.get("href") if a.get("href", "").startswith("/") else a.get("href")
+        title = a.text.strip()
+        # Lấy nội dung bài viết
+        try:
+            article_res = requests.get(url, timeout=10)
+            article_soup = BeautifulSoup(article_res.text, "lxml")
+            body = " ".join([p.text for p in article_soup.select("div.contentdetail > p")])
+        except Exception:
+            body = ""
+        # Tìm các mã cổ phiếu trong title + body (giả sử mã viết hoa, 3 ký tự trở lên, không phải từ tiếng Việt)
+        tickers = re.findall(r"\b[A-Z]{3,5}\b", title + " " + body)
+        tickers = [m for m in tickers if m not in ["HOSE", "HNX", "UPCOM", "VNINDEX"] and not m.isdigit()]
+        # Phân tích sentiment đơn giản (bạn nên tích hợp AI NLP hoặc OpenAI API cho phân tích thực sự mạnh hơn)
+        sentiment = "Khó xác định"
+        if any(w in body for w in ["khuyến nghị mua", "nên mua", "tích cực", "mục tiêu tăng", "mua vào"]):
+            sentiment = "Mua"
+        elif any(w in body for w in ["chốt lời", "bán ra", "áp lực bán", "giảm tỷ trọng", "cảnh báo"]):
+            sentiment = "Bán"
+        result_list.append({
+            "url": url,
+            "title": title,
+            "tickers": tickers,
+            "sentiment": sentiment
+        })
+ 
+    # Tổng hợp tần suất các mã được khuyến nghị Mua/Bán
+    buy_counter = {}
+    sell_counter = {}
+    for art in result_list:
+        for m in art["tickers"]:
+            if art["sentiment"] == "Mua":
+                buy_counter[m] = buy_counter.get(m, 0) + 1
+            elif art["sentiment"] == "Bán":
+                sell_counter[m] = sell_counter.get(m, 0) + 1
+ 
+    # Lấy top 10 Mua và Bán
+    top_buy = sorted(buy_counter.items(), key=lambda x: x[1], reverse=True)[:10]
+    top_sell = sorted(sell_counter.items(), key=lambda x: x[1], reverse=True)[:10]
+ 
+    # Chuẩn hóa output thành DataFrame
+    rows = []
+    for m, count in top_buy:
+        rows.append({
+            "Mã CK": m,
+            "Khuyến nghị": "Mua",
+            "Lý do": f"Có {count} bài/nguồn khuyến nghị MUA gần đây (CafeF)",
+            "Giá cuối ngày hôm qua": "",
+            "Giá hiện tại": "",
+            "Tỷ lệ thay đổi (Tăng/Giảm)": ""
+        })
+    for m, count in top_sell:
+        rows.append({
+            "Mã CK": m,
+            "Khuyến nghị": "Bán",
+            "Lý do": f"Có {count} bài/nguồn khuyến nghị BÁN gần đây (CafeF)",
+            "Giá cuối ngày hôm qua": "",
+            "Giá hiện tại": "",
+            "Tỷ lệ thay đổi (Tăng/Giảm)": ""
+        })
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df = df[["Mã CK", "Khuyến nghị", "Giá cuối ngày hôm qua", "Giá hiện tại", "Tỷ lệ thay đổi (Tăng/Giảm)", "Lý do"]]
+    return df
 
 def send_email(df, email_address):
     try:
