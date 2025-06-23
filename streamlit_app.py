@@ -3,41 +3,21 @@ import pandas as pd
 import datetime
 import re
 import numpy as np
-import subprocess
-import os
  
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
  
-CSV_FILE = "stock_sentiment.csv"
-CRAWL_SCRIPT = "crawl_stock_sentiment.py"
- 
 def fetch_stock_data():
-    # Đọc dữ liệu từ file CSV
-    if os.path.exists(CSV_FILE):
-        df = pd.read_csv(CSV_FILE, encoding='utf-8-sig')
-    else:
-        # Nếu chưa có file thì trả về DataFrame rỗng
-        df = pd.DataFrame(columns=["Mã CK", "Khuyến nghị", "Giá cuối ngày hôm qua", "Giá hiện tại", "Tỷ lệ thay đổi (Tăng/Giảm)", "Lý do"])
+    # Dán link public Google Drive CSV tại đây
+    #url = "https://drive.google.com/uc?export=download&id=YOUR_FILE_ID"
+    url = "https://drive.google.com/uc?export=download&id=1grY00AD80TcyJ_rym7Px_c5U4rekPeir"
+    df = pd.read_csv(url, encoding='utf-8-sig')
     return df
- 
-def run_crawl_script():
-    # Chạy file crawl_stock_sentiment.py, ghi đè file CSV mới nhất
-    try:
-        result = subprocess.run(["python", CRAWL_SCRIPT], capture_output=True, text=True, timeout=60)
-        if result.returncode == 0:
-            return True, "Đã crawl dữ liệu mới thành công!"
-        else:
-            return False, f"Lỗi crawl dữ liệu: {result.stderr}"
-    except Exception as e:
-        return False, f"Lỗi khi chạy script crawl: {e}"
  
 def send_email(df, email_address):
     try:
-        # Tạo bản sao DataFrame để format mà không làm hỏng dữ liệu gốc
         df_send = df.copy()
-        # Định dạng giá khi gửi email (triệu đồng, 2 chữ số thập phân)
         for col in ["Giá cuối ngày hôm qua", "Giá hiện tại"]:
             if col in df_send.columns:
                 df_send[col] = df_send[col].apply(
@@ -100,7 +80,13 @@ def is_valid_email(email):
  
 st.set_page_config(page_title="AI Stock Advisor", layout="wide")
 st.title("Stock Advisor - BinhPT")
-st.markdown("#### Tư vấn chứng khoán tự động, lọc dữ liệu & gửi email (cập nhật từ dữ liệu web)")
+st.markdown("#### Tư vấn chứng khoán tự động, lọc dữ liệu & gửi email (đọc dữ liệu từ Google Drive)")
+ 
+if 'df' not in st.session_state:
+    st.session_state['df'] = fetch_stock_data()
+    st.session_state['last_update'] = datetime.datetime.now().strftime('%H:%M:%S')
+if 'filtered_df' not in st.session_state:
+    st.session_state['filtered_df'] = st.session_state['df']
  
 # --- Nhập email + nút gửi email + Refresh ---
 c1, c2, c3 = st.columns([4, 1, 1])
@@ -122,21 +108,10 @@ with c2:
 with c3:
     st.write("")
     if st.button("Refresh dữ liệu"):
-        with st.spinner("Đang lấy dữ liệu mới từ web, vui lòng chờ..."):
-            ok, msg = run_crawl_script()
-            if ok:
-                st.session_state['df'] = fetch_stock_data()
-                st.session_state['last_update'] = datetime.datetime.now().strftime('%H:%M:%S')
-                st.session_state['filtered_df'] = st.session_state['df']
-                st.success(f"{msg} (Cập nhật lúc {st.session_state['last_update']})")
-            else:
-                st.error(msg)
- 
-if 'df' not in st.session_state:
-    st.session_state['df'] = fetch_stock_data()
-    st.session_state['last_update'] = datetime.datetime.now().strftime('%H:%M:%S')
-if 'filtered_df' not in st.session_state:
-    st.session_state['filtered_df'] = st.session_state['df']
+        st.session_state['df'] = fetch_stock_data()
+        st.session_state['last_update'] = datetime.datetime.now().strftime('%H:%M:%S')
+        st.session_state['filtered_df'] = st.session_state['df']
+        st.success(f"Đã cập nhật lúc {st.session_state['last_update']}")
  
 st.info(f"Cập nhật lần cuối: {st.session_state['last_update']}")
  
@@ -204,7 +179,7 @@ display_df = df.copy()
 for col in ["Giá cuối ngày hôm qua", "Giá hiện tại"]:
     if col in display_df.columns:
         display_df[col] = display_df[col].apply(lambda x: f"{float(x)/1000:.2f}" if str(x).replace('.', '', 1).isdigit() else x)
-        
+ 
 st.markdown("#### Danh sách mã chứng khoán")
 if display_df.empty:
     st.warning("Không có dữ liệu phù hợp với bộ lọc.")
