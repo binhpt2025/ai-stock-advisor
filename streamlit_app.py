@@ -9,8 +9,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 def fetch_stock_data():
-    url = "https://drive.google.com/uc?export=download&id=1wVlBK6l9AmT2UpgjeG-KuTFhlj0sbjyH"
-    
+    #url = "https://drive.google.com/uc?export=download&id=1wVlBK6l9AmT2UpgjeG-KuTFhlj0sbjyH"
+    url = "https://drive.google.com/file/d/1wVlBK6l9AmT2UpgjeG-KuTFhlj0sbjyH/view?usp=drivesdk"
     # Đọc file csv, nếu lỗi thì trả về DataFrame rỗng
     try:
         df = pd.read_csv(url, encoding='utf-8-sig')
